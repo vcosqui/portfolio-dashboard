@@ -1,0 +1,7 @@
+Posiciones_*.csv
+Valor_*.csv
+fund_history.json
+CLAUDE.md
+.claude/
+build.py
+*.local.json

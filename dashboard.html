@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0f172a;--card:#1e293b;--card2:#263346;--border:#334155;
+  --text:#f1f5f9;--muted:#94a3b8;--accent:#3b82f6;
+  --green:#10b981;--red:#ef4444;--amber:#f59e0b;--radius:12px;
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+.app{max-width:1300px;margin:0 auto;padding:24px 16px}
+
+/* Header */
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#3b82f6,#6366f1);display:flex;align-items:center;justify-content:center;font-size:18px}
+.logo h1{font-size:18px;font-weight:600}
+.logo .sub{font-size:12px;color:var(--muted)}
+.hdr-right{text-align:right;font-size:12px;color:var(--muted)}
+.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* Upload zone */
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:48px 24px;text-align:center;cursor:pointer;transition:all .2s;background:var(--card);position:relative;margin-bottom:24px}
+.upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent);background:rgba(59,130,246,.05)}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-icon{font-size:40px;margin-bottom:12px}
+.upload-zone h3{font-size:16px;font-weight:600;margin-bottom:8px}
+.upload-zone p{color:var(--muted);font-size:13px}
+.chips{display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+.chip{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500;border:1px solid var(--border);color:var(--muted)}
+.chip.ok{border-color:var(--green);color:var(--green)}
+
+/* Dashboard */
+.dashboard{display:none}.dashboard.visible{display:block}
+
+/* Tabs */
+.tabs{display:flex;gap:2px;background:var(--card);border-radius:var(--radius);padding:4px;margin-bottom:20px;overflow-x:auto}
+.tab-btn{flex:1;min-width:90px;padding:8px 14px;border:none;border-radius:8px;background:transparent;color:var(--muted);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap}
+.tab-btn:hover{color:var(--text);background:var(--card2)}
+.tab-btn.active{background:var(--accent);color:#fff}
+.tab-panel{display:none}.tab-panel.active{display:block}
+
+/* Cards */
+.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:20px}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.card-title{font-size:14px;font-weight:600}
+.mb16{margin-bottom:16px}
+
+/* Stat cards */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--card);border-radius:var(--radius);padding:20px;border:1px solid var(--border)}
+.stat-card .lbl{font-size:11px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.stat-card .val{font-size:24px;font-weight:700;margin:6px 0 2px}
+.stat-card .sub{font-size:12px;color:var(--muted)}
+.pos{color:var(--green)}.neg{color:var(--red)}
+
+/* Two-col grid */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:768px){.two-col{grid-template-columns:1fr}}
+
+/* Chart wrappers */
+.cw{position:relative;height:300px}.cw-lg{height:380px}.cw-sm{height:200px}
+
+/* Holdings table */
+.htbl{width:100%;border-collapse:collapse;font-size:13px}
+.htbl th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--border)}
+.htbl td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.04)}
+.htbl tr:last-child td{border-bottom:none}
+.htbl tr:hover td{background:rgba(255,255,255,.02)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;flex-shrink:0;vertical-align:middle}
+.bar-wrap{width:60px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;display:inline-block;vertical-align:middle}
+.bar-inner{height:100%;border-radius:2px}
+
+/* Buttons */
+.range-btns{display:flex;gap:4px;flex-wrap:wrap}
+.range-btn{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
+.range-btn:hover{color:var(--text);border-color:var(--text)}
+.range-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.toggle-btns{display:flex;background:var(--card2);border-radius:8px;padding:2px;gap:2px}
+.toggle-btn{padding:4px 10px;border-radius:6px;border:none;background:transparent;color:var(--muted);font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
+.toggle-btn.active{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+
+/* Metrics row */
+.metrics-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+.metric{flex:1;min-width:120px;background:var(--card2);border-radius:8px;padding:12px 14px}
+.metric .ml{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.metric .mv{font-size:17px;font-weight:600}
+
+/* Forecast */
+.fc-layout{display:grid;grid-template-columns:260px 1fr;gap:16px}
+@media(max-width:900px){.fc-layout{grid-template-columns:1fr}}
+.fc-inputs{display:flex;flex-direction:column;gap:14px}
+.inp-grp{display:flex;flex-direction:column;gap:6px}
+.inp-row{display:flex;align-items:center;justify-content:space-between}
+.inp-grp label{font-size:12px;color:var(--muted);font-weight:500}
+.inp-grp input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;margin-top:4px}
+.inp-num{background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:13px;font-weight:600;color:var(--text)}
+.inp-num input{background:transparent;border:none;outline:none;font-family:inherit;font-size:13px;font-weight:600;color:var(--text);width:80px;text-align:right}
+.run-btn{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s;margin-top:4px}
+.run-btn:hover{opacity:.88}
+.fc-results{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px}
+.res-card{background:var(--card2);border-radius:8px;padding:12px;text-align:center}
+.res-card .rl{font-size:11px;color:var(--muted);margin-bottom:6px}
+.res-card .rv{font-size:16px;font-weight:700}
+
+/* Stats table */
+.stbl{width:100%;font-size:13px}
+.stbl tr{border-bottom:1px solid rgba(255,255,255,.04)}
+.stbl tr:last-child{border-bottom:none}
+.stbl td{padding:8px 10px}
+.stbl td:first-child{color:var(--muted)}
+.stbl td:last-child{font-weight:600;text-align:right}
+.tip-wrap{position:relative;display:inline-flex;align-items:center;gap:5px;cursor:default}
+.tip-icon{width:13px;height:13px;border-radius:50%;background:var(--card2);border:1px solid var(--border);color:var(--muted);font-size:9px;line-height:13px;text-align:center;flex-shrink:0;font-style:normal;font-weight:600}
+.tip-box{position:absolute;left:0;top:calc(100% + 6px);background:#0f1f35;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:11px;color:var(--text);line-height:1.5;white-space:normal;width:220px;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.5);pointer-events:none;opacity:0;transition:opacity .15s}
+.tip-wrap:hover .tip-box{opacity:1}
+
+/* Heatmap */
+.hmap{width:100%;border-collapse:collapse;font-size:12px}
+.hmap th{padding:6px 8px;text-align:center;color:var(--muted);font-weight:500;font-size:11px}
+.hmap td{padding:5px 6px;text-align:center;border-radius:4px;min-width:52px}
+.hmap .yr{font-weight:600;color:var(--muted);text-align:left;padding:5px 10px}
+
+/* Holdings leaderboard */
+.lb-list{display:flex;flex-direction:column;gap:6px}
+.lb-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card2);border-radius:8px;transition:background .15s}
+.lb-row:hover{background:#2d3f55}
+.lb-rank{font-size:12px;color:var(--muted);font-weight:700;width:22px;text-align:center;flex-shrink:0}
+.lb-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.lb-info{flex:1;min-width:0}
+.lb-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb-meta{font-size:11px;color:var(--muted);display:flex;gap:6px;margin-top:2px}
+.lb-badge{padding:1px 6px;border-radius:3px;background:var(--border);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.lb-badge.eq{color:#06B6D4}.lb-badge.bd{color:#8B5CF6}
+.lb-bar-col{flex:0 0 90px}
+.lb-bar-bg{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.lb-bar-fg{height:100%;border-radius:3px}
+.lb-pct{font-size:14px;font-weight:700;width:72px;text-align:right;flex-shrink:0}
+.lb-ticker{font-size:10px;color:var(--muted)}
+
+/* Fund mini-cards grid */
+.fund-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px}
+.fund-card{background:var(--card2);border-radius:8px;padding:14px;border:1px solid var(--border)}
+.fund-card .fc-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.fund-card .fc-name{font-size:12px;font-weight:600;flex:1}
+.fund-card .fc-ret{font-size:20px;font-weight:700;margin-bottom:2px}
+.fund-card .fc-sub{font-size:11px;color:var(--muted)}
+.fc-ext{font-size:11px;color:var(--muted);text-decoration:none;line-height:1;opacity:.6;transition:opacity .15s;margin-left:auto;flex-shrink:0}
+.fc-ext:hover{opacity:1;color:var(--accent)}
+.proxy-note{font-size:11px;color:var(--muted);text-align:center;padding:8px;background:var(--card2);border-radius:6px;margin-top:8px}
+.dl-btn{padding:10px 28px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s}
+.dl-btn:hover{opacity:.88}
+.dl-btn:disabled{opacity:.5;cursor:wait}
+.dl-sm{padding:5px 12px;background:var(--card2);color:var(--muted);border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
+.dl-sm:hover{color:var(--text);border-color:var(--text)}
+.dl-sm:disabled{opacity:.5;cursor:wait}
+.prog-wrap{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:12px;max-width:220px;margin-left:auto;margin-right:auto}
+.prog-inner{height:100%;background:var(--accent);border-radius:2px;transition:width .35s}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">📈</div>
+    <div>
+      <h1>Portfolio Dashboard</h1>
+      <div class="sub">Vanguard Index Funds</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div><span class="status-dot"></span><span id="lastUpdate">No data loaded</span></div>
+    <div id="todayDate"></div>
+  </div>
+</header>
+
+<!-- Upload -->
+<div class="upload-zone" id="uploadZone">
+  <input type="file" id="fileInput" accept=".csv,.json" multiple>
+  <div class="upload-icon">📂</div>
+  <h3>Drop your export files here</h3>
+  <p>Drag & drop or click · <strong>Posiciones_*.csv</strong> · <strong>Valor_*.csv</strong> · <strong>fund_history.json</strong></p>
+  <div class="chips">
+    <div class="chip" id="chipPos">○ Posiciones_*.csv</div>
+    <div class="chip" id="chipVal">○ Valor_*.csv</div>
+    <div class="chip" id="chipFH">○ fund_history.json <span style="opacity:.6;font-size:10px">(optional)</span></div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div class="dashboard" id="dashboard">
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="overview">Overview</button>
+    <button class="tab-btn" data-tab="performance">Performance</button>
+    <button class="tab-btn" data-tab="contributions">Contributions</button>
+    <button class="tab-btn" data-tab="holdings">Holdings</button>
+    <button class="tab-btn" data-tab="forecast">Forecast</button>
+    <button class="tab-btn" data-tab="analysis">Analysis</button>
+  </nav>
+
+  <!-- Overview -->
+  <div class="tab-panel active" id="tab-overview">
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">Allocation</span><span style="font-size:12px;color:var(--muted)">by market value</span></div>
+        <div class="cw"><canvas id="allocationChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">Holdings</span></div>
+        <div style="overflow:auto;max-height:340px"><table class="htbl" id="holdingsTable"></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Performance -->
+  <div class="tab-panel" id="tab-performance">
+    <div class="card mb16">
+      <div class="card-hdr">
+        <span class="card-title">Portfolio Value</span>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div class="toggle-btns" id="perfMode">
+            <button class="toggle-btn active" data-mode="value">€ Value</button>
+            <button class="toggle-btn" data-mode="base100">Base 100</button>
+            <button class="toggle-btn" data-mode="pct">Return %</button>
+            <button class="toggle-btn" data-mode="earned">Earned €</button>
+          </div>
+          <div class="range-btns" id="perfRange">
+            <button class="range-btn" data-r="1M">1M</button>
+            <button class="range-btn" data-r="3M">3M</button>
+            <button class="range-btn" data-r="6M">6M</button>
+            <button class="range-btn" data-r="YTD">YTD</button>
+            <button class="range-btn" data-r="1Y">1Y</button>
+            <button class="range-btn active" data-r="ALL">All</button>
+          </div>
+        </div>
+      </div>
+      <div class="cw cw-lg"><canvas id="perfChart"></canvas></div>
+      <div class="metrics-row" id="perfMetrics"></div>
+    </div>
+  </div>
+
+  <!-- Contributions -->
+  <div class="tab-panel" id="tab-contributions">
+    <div class="card mb16">
+      <div class="card-hdr"><span class="card-title">Portfolio Value vs Invested Capital</span></div>
+      <div class="cw cw-lg"><canvas id="contribChart"></canvas></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">Monthly Contributions</span></div>
+        <div class="cw cw-sm"><canvas id="monthlyContribChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">Growth Summary</span></div>
+        <table class="stbl" id="contribStats"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Forecast -->
+  <div class="tab-panel" id="tab-forecast">
+    <div class="fc-layout">
+      <div class="card fc-inputs">
+        <div class="card-hdr"><span class="card-title">Parameters</span></div>
+        <div class="inp-grp">
+          <div class="inp-row">
+            <label>Monthly Contribution</label>
+            <div class="inp-num"><input type="number" id="fcMonthly" min="0" step="100" value="2000"> €</div>
+          </div>
+        </div>
+        <div class="inp-grp">
+          <div class="inp-row"><label>Expected Annual Return</label><span class="inp-num" id="fcReturnVal">4.5%</span></div>
+          <input type="range" id="fcReturn" min="0" max="20" step="0.5" value="4.5">
+        </div>
+        <div class="inp-grp">
+          <div class="inp-row"><label>Annual Volatility</label><span class="inp-num" id="fcVolVal">10.0%</span></div>
+          <input type="range" id="fcVol" min="1" max="40" step="0.5" value="10">
+        </div>
+        <div class="inp-grp">
+          <div class="inp-row"><label>Horizon</label><span class="inp-num" id="fcHorizonVal">15 yrs</span></div>
+          <input type="range" id="fcHorizon" min="1" max="35" step="1" value="15">
+        </div>
+        <div class="inp-grp">
+          <div class="inp-row"><label>Simulations</label><span class="inp-num" id="fcSimsVal">500</span></div>
+          <input type="range" id="fcSims" min="100" max="2000" step="100" value="500">
+        </div>
+        <button class="run-btn" id="runForecast">▶ Run Monte Carlo</button>
+        <div class="fc-results" id="forecastResults"></div>
+      </div>
+      <div>
+        <div class="card mb16">
+          <div class="card-hdr">
+            <span class="card-title">Monte Carlo Projection</span>
+            <span style="font-size:12px;color:var(--muted)" id="fcSubtitle"></span>
+          </div>
+          <div class="cw cw-lg"><canvas id="forecastChart"></canvas></div>
+          <div id="fcLegend" style="display:flex;gap:18px;justify-content:center;flex-wrap:wrap;padding:10px 0 2px;font-size:12px"></div>
+        </div>
+        <div class="card mb16">
+          <div class="card-hdr"><span class="card-title">Final Value Distribution</span></div>
+          <div class="cw cw-sm"><canvas id="forecastDistChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr">
+            <span class="card-title">Cumulative Return — Forecast</span>
+            <span style="font-size:11px;color:var(--muted)">total growth since today, with confidence bands</span>
+          </div>
+          <div class="cw" style="height:280px"><canvas id="fcAnnualChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Holdings -->
+  <div class="tab-panel" id="tab-holdings">
+    <div id="holdingsNoData" class="card mb16" style="text-align:center;padding:48px 24px;color:var(--muted)">
+      <div style="font-size:36px;margin-bottom:12px">📊</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:8px;color:var(--text)">No fund history loaded</div>
+      <div style="font-size:13px;margin-bottom:20px">Download live ETF proxy data directly from Yahoo Finance — no script needed.</div>
+      <button class="dl-btn" id="dlBtn" onclick="fetchAllFunds()">↓ Download Fund History</button>
+      <div class="prog-wrap" id="dlProgWrap" style="display:none"><div class="prog-inner" id="dlProgBar" style="width:0%"></div></div>
+      <div id="dlStatus" style="font-size:12px;margin-top:10px;min-height:16px"></div>
+      <div id="dlError" style="font-size:12px;margin-top:8px;color:#f87171;display:none"></div>
+      <div style="font-size:11px;margin-top:16px;opacity:.5">Uses corsproxy.io + Yahoo Finance. Data may take ~15s.</div>
+    </div>
+    <div id="holdingsContent" style="display:none">
+      <div class="fund-cards" id="fundCards"></div>
+      <div class="card mb16">
+        <div class="card-hdr">
+          <span class="card-title">Fund Performance Comparison</span>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="dl-sm" id="refreshBtn" onclick="fetchAllFunds()" title="Re-download fund history">↻ Refresh</button>
+            <div class="toggle-btns" id="holdingsFilter">
+              <button class="toggle-btn active" data-f="all">All</button>
+              <button class="toggle-btn" data-f="equity">Equity</button>
+              <button class="toggle-btn" data-f="bond">Bonds</button>
+            </div>
+            <div class="range-btns" id="holdingsRange">
+              <button class="range-btn" data-r="1M">1M</button>
+              <button class="range-btn" data-r="3M">3M</button>
+              <button class="range-btn" data-r="6M">6M</button>
+              <button class="range-btn active" data-r="YTD">YTD</button>
+              <button class="range-btn" data-r="1Y">1Y</button>
+              <button class="range-btn" data-r="ALL">All</button>
+            </div>
+          </div>
+        </div>
+        <div class="cw cw-lg"><canvas id="holdingsChart"></canvas></div>
+        <div class="proxy-note" id="proxyNote"></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr">
+          <span class="card-title">Performance Ranking</span>
+          <span id="holdingsPeriodLabel" style="font-size:12px;color:var(--muted)"></span>
+        </div>
+        <div class="lb-list" id="holdingsLeaderboard"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analysis -->
+  <div class="tab-panel" id="tab-analysis">
+    <div class="card mb16">
+      <div class="card-hdr"><span class="card-title">Drawdown from Peak</span></div>
+      <div class="cw"><canvas id="drawdownChart"></canvas></div>
+    </div>
+    <div class="two-col mb16">
+      <div class="card">
+        <div class="card-hdr">
+          <span class="card-title">Rolling Annualised Return</span>
+          <div class="range-btns" id="rollingRange">
+            <button class="range-btn active" data-w="30">30d</button>
+            <button class="range-btn" data-w="90">90d</button>
+            <button class="range-btn" data-w="180">180d</button>
+          </div>
+        </div>
+        <div class="cw"><canvas id="rollingChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">Key Statistics</span></div>
+        <table class="stbl" id="statsTable"></table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr">
+        <span class="card-title">Monthly Returns Heatmap</span>
+        <span style="font-size:12px;color:var(--muted)">pure investment return · based on Base-100 index</span>
+      </div>
+      <div style="overflow-x:auto"><div id="heatmapContainer"></div></div>
+    </div>
+  </div>
+</div><!-- /dashboard -->
+</div><!-- /app -->
+
+<script>
+// @@AUTO_DATA_START
+const AUTO_DATA = null;
+// @@AUTO_DATA_END
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+const S = { positions: null, history: null, fundHistory: null, charts: {}, perfMode: 'value', perfRange: 'ALL', rollingW: 30, holdingsRange: 'YTD', holdingsFilter: 'all' };
+
+const CORS_PROXY = 'https://corsproxy.io/?url=';
+const FUND_TICKERS = [
+  { isin:'IE00BFPM9V94', name:'Vanguard US 500 Stk Idx Eur -Ins Plus',           short:'US 500',      ticker:'VUSA.AS', type:'equity',   proxy:false,  currency:'EUR' },
+  { isin:'IE00BFPM9L96', name:'Vanguard European Stk Idx Eur -Ins Plus',          short:'European',    ticker:'VEUR.AS', type:'equity',   proxy:false,  currency:'EUR' },
+  { isin:'IE00BFRTDD83', name:'Vanguard Global Small Cap Idx Eur -Ins Plus',      short:'Small Cap',   ticker:'WSML.L',  type:'equity',   proxy:false,  currency:'GBX' },
+  { isin:'IE00BFPM9J74', name:'Vanguard Emrg Mk Stk Idx Eur -Ins Plus',          short:'Emerging',    ticker:'VFEM.AS', type:'equity',   proxy:false,  currency:'EUR' },
+  { isin:'IE00BFPM9W02', name:'Vanguard Eur Gov Bnd Idx -Ins Plus',              short:'EU Gov Bond', ticker:'VETY.L',  type:'bond',     proxy:false,  currency:'GBX' },
+  { isin:'IE00BFPM9P35', name:'Vanguard Japan Stk Idx Eur -Ins Plus',            short:'Japan',       ticker:'VJPN.AS', type:'equity',   proxy:false,  currency:'EUR' },
+  { isin:'IE00BFPM9X19', name:'Vanguard Euro Inv Gr Bnd Idx Eur -Ins Plus',      short:'EU Corp Bond',ticker:'VECP.AS', type:'bond',     proxy:false,  currency:'EUR' },
+  { isin:'IE00BZ04LQ92', name:'Vanguard US Inv Gr Bnd Idx Eur Hdg -Ins Plus',   short:'US Corp Bond',ticker:'VUCP.AS', type:'bond',     proxy:false,  currency:'EUR' },
+  { isin:'IE00BF6T7R10', name:'Vanguard US Gov Bnd Idx Eur Hdg -Ins Plus',      short:'US Gov Bond', ticker:'IBTM.L',  type:'bond',     proxy:true,   currency:'GBX' },
+  { isin:'IE00BGCZ0719', name:'Vanguard Euroz Inf Lk Bnd Idx Eur -Ins Plus',    short:'Infl-Linked', ticker:'VEIL.L',  type:'bond',     proxy:false,  currency:'GBX' },
+];
+
+async function fetchOneFund(fund) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${fund.ticker}?interval=1d&range=2y`;
+  const res = await fetch(CORS_PROXY + encodeURIComponent(url));
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${fund.ticker}`);
+  const json = await res.json();
+  const result = json?.chart?.result?.[0];
+  if (!result) throw new Error(`No data for ${fund.ticker}`);
+  const timestamps = result.timestamp;
+  const closes = result.indicators?.quote?.[0]?.close;
+  if (!timestamps || !closes) throw new Error(`Missing OHLC for ${fund.ticker}`);
+  const prices = {};
+  timestamps.forEach((ts, i) => {
+    if (closes[i] != null) {
+      const d = new Date(ts * 1000).toISOString().slice(0, 10);
+      prices[d] = closes[i];
+    }
+  });
+  const dates = Object.keys(prices).sort();
+  const base = prices[dates[0]];
+  const base100 = {};
+  dates.forEach(d => base100[d] = parseFloat(((prices[d] / base) * 100).toFixed(4)));
+  return { ...fund, baseDate: dates[0], prices, base100 };
+}
+
+async function fetchAllFunds() {
+  const dlBtn = document.getElementById('dlBtn');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const progWrap = document.getElementById('dlProgWrap');
+  const progBar = document.getElementById('dlProgBar');
+  const status = document.getElementById('dlStatus');
+  const errDiv = document.getElementById('dlError');
+  if (dlBtn) { dlBtn.disabled = true; }
+  if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = '…'; }
+  if (progWrap) progWrap.style.display = '';
+  if (errDiv) errDiv.style.display = 'none';
+  const funds = [];
+  const total = FUND_TICKERS.length;
+  for (let i = 0; i < total; i++) {
+    const f = FUND_TICKERS[i];
+    if (status) status.textContent = `Fetching ${f.short} (${i + 1}/${total})…`;
+    if (progBar) progBar.style.width = `${Math.round((i / total) * 100)}%`;
+    try {
+      funds.push(await fetchOneFund(f));
+    } catch (e) {
+      if (errDiv) { errDiv.textContent = `Warning: ${e.message}`; errDiv.style.display = ''; }
+    }
+    if (i < total - 1) await new Promise(r => setTimeout(r, 400));
+  }
+  if (progBar) progBar.style.width = '100%';
+  if (status) status.textContent = `Loaded ${funds.length} of ${total} funds`;
+  S.fundHistory = { generated: new Date().toISOString(), funds };
+  const chipFH = document.getElementById('chipFH');
+  if (chipFH) { chipFH.className = 'chip ok'; chipFH.textContent = `✓ ${funds.length} funds (live)`; }
+  document.getElementById('dashboard').classList.add('visible');
+  renderHoldings();
+  if (dlBtn) dlBtn.disabled = false;
+  if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '↻ Refresh'; }
+}
+
+// ═══════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════
+const PAL = ['#3B82F6','#10B981','#06B6D4','#F59E0B','#8B5CF6','#64748B','#EC4899','#6366F1','#EF4444','#84CC16'];
+const FUND_SHORT = {
+  'Vanguard US 500 Stk Idx Eur -Ins Plus':            'US 500',
+  'Vanguard European Stk Idx Eur -Ins Plus':          'European',
+  'Vanguard Global Small Cap Idx Eur -Ins Plus':      'Small Cap',
+  'Vanguard Emrg Mk Stk Idx Eur -Ins Plus':           'Emerging Mkts',
+  'Vanguard Eur Gov Bnd Idx -Ins Plus':               'EU Gov Bond',
+  'Vanguard Japan Stk Idx Eur -Ins Plus':             'Japan',
+  'Vanguard Euro Inv Gr Bnd Idx Eur -Ins Plus':       'EU Corp Bond',
+  'Vanguard US Inv Gr Bnd Idx Eur Hdg -Ins Plus':     'US Corp Bond',
+  'Vanguard US Gov Bnd Idx Eur Hdg -Ins Plus':        'US Gov Bond',
+  'Vanguard Euroz Inf Lk Bnd Idx Eur -Ins Plus':      'EUR Infl-Lk',
+};
+
+// ═══════════════════════════════════════════════════════
+// FORMATTING
+// ═══════════════════════════════════════════════════════
+const eur0 = new Intl.NumberFormat('es-ES', { style:'currency', currency:'EUR', maximumFractionDigits:0 });
+const eur2 = new Intl.NumberFormat('es-ES', { style:'currency', currency:'EUR', minimumFractionDigits:2 });
+const pct  = (n, d=2) => (n >= 0 ? '+' : '') + n.toFixed(d) + '%';
+const sname = n => FUND_SHORT[n] || n.replace('Vanguard ','').replace(' -Ins Plus','').slice(0,22);
+const ha = (hex, a) => { const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return `rgba(${r},${g},${b},${a})`; };
+
+// ═══════════════════════════════════════════════════════
+// PARSING
+// ═══════════════════════════════════════════════════════
+function pNum(s) {
+  if (!s) return 0;
+  return parseFloat(String(s).replace(/€/g,'').replace(/%/g,'').replace(/\+/g,'').trim().replace(/\./g,'').replace(',','.')) || 0;
+}
+
+function parsePositions(text) {
+  const r = Papa.parse(text, { delimiter:';', header:true, skipEmptyLines:true });
+  return r.data.map(row => ({
+    fund:  row['Fondo de inversión'] || Object.values(row)[0],
+    isin:  row['Código ISIN'],
+    units: pNum(row['Participaciones']),
+    price: pNum(row['Precio / participación']),
+    value: pNum(row['Importe']),
+  })).filter(p => p.fund && p.value > 0);
+}
+
+function parseHistory(text) {
+  const r = Papa.parse(text, { delimiter:';', header:true, skipEmptyLines:true });
+  return r.data.map(row => ({
+    date:         row['Fecha'],
+    value:        pNum(row['EN EUROS (€)']),
+    returnPct:    pNum(row['EN PORCENTAJE (%)']),
+    base100:      pNum(row['Evolución de la cartera (base 100)']),
+    returnEur:    pNum(row['Rentabilidad (€)']),
+    dailyContrib: pNum(row['Aportaciones netas del día (€)']),
+    totalContrib: pNum(row['Aportaciones netas acumuladas (€)']),
+    totalTax:     pNum(row['Retenciones acumuladas (€)']),
+  })).filter(r => r.date && r.value > 0).sort((a,b) => a.date.localeCompare(b.date));
+}
+
+// ═══════════════════════════════════════════════════════
+// CHART DEFAULTS & HELPERS
+// ═══════════════════════════════════════════════════════
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = '#334155';
+Chart.defaults.font.family = "'Inter',system-ui,sans-serif";
+Chart.defaults.font.size = 12;
+
+function kill(key) { if (S.charts[key]) { S.charts[key].destroy(); delete S.charts[key]; } }
+
+const BASE = {
+  responsive:true, maintainAspectRatio:false,
+  interaction:{ mode:'index', intersect:false },
+  plugins:{
+    legend:{display:false},
+    tooltip:{ backgroundColor:'#1e293b', borderColor:'#334155', borderWidth:1, padding:10, titleColor:'#f1f5f9', bodyColor:'#94a3b8' },
+  },
+  scales:{
+    x:{ grid:{ color:'#1e293b' }, ticks:{ maxTicksLimit:8 } },
+    y:{ grid:{ color:'#1e293b' }, ticks:{ maxTicksLimit:6 } },
+  },
+};
+
+function timeXScale(unit='month') {
+  return { type:'time', time:{ unit, tooltipFormat:'dd MMM yyyy' }, grid:{ color:'#1e293b' }, ticks:{ maxTicksLimit:8 } };
+}
+
+// ═══════════════════════════════════════════════════════
+// STATISTICS
+// ═══════════════════════════════════════════════════════
+function calcVol(hist) {
+  if (hist.length < 2) return 0;
+  const rets = [];
+  for (let i = 1; i < hist.length; i++)
+    if (hist[i-1].base100 > 0) rets.push(Math.log(hist[i].base100 / hist[i-1].base100));
+  const m = rets.reduce((a,b)=>a+b,0)/rets.length;
+  const v = rets.reduce((a,r)=>a+(r-m)**2,0)/(rets.length-1);
+  return Math.sqrt(v) * Math.sqrt(252) * 100;
+}
+
+function calcMaxDD(hist) {
+  let peak=-Infinity, dd=0;
+  for (const r of hist) { if (r.base100>peak) peak=r.base100; const d=(r.base100-peak)/peak*100; if(d<dd) dd=d; }
+  return dd;
+}
+
+function getDrawdowns(hist) {
+  let peak=-Infinity;
+  return hist.map(r => { if(r.base100>peak) peak=r.base100; return (r.base100-peak)/peak*100; });
+}
+
+function rollingRet(hist, w) {
+  return hist.map((r,i) => {
+    if (i<w || hist[i-w].base100===0) return null;
+    return (r.base100/hist[i-w].base100 - 1)*100*(365/w);
+  });
+}
+
+function filterRange(hist, range) {
+  if (!hist || !hist.length) return [];
+  const last = new Date(hist[hist.length-1].date);
+  let start;
+  if      (range==='1M')  { start=new Date(last); start.setMonth(start.getMonth()-1); }
+  else if (range==='3M')  { start=new Date(last); start.setMonth(start.getMonth()-3); }
+  else if (range==='6M')  { start=new Date(last); start.setMonth(start.getMonth()-6); }
+  else if (range==='YTD') { start=new Date(last.getFullYear(),0,1); }
+  else if (range==='1Y')  { start=new Date(last); start.setFullYear(start.getFullYear()-1); }
+  else return hist;
+  const s = start.toISOString().slice(0,10);
+  return hist.filter(r => r.date >= s);
+}
+
+// ═══════════════════════════════════════════════════════
+// OVERVIEW TAB
+// ═══════════════════════════════════════════════════════
+function renderOverview() {
+  const pos = S.positions, hist = S.history;
+  const latest = hist ? hist[hist.length-1] : null;
+  const totalVal = pos ? pos.reduce((s,p)=>s+p.value,0) : (latest?.value||0);
+  const retPct = latest?.returnPct||0, retEur = latest?.returnEur||0, invested = latest?.totalContrib||0;
+
+  // Stat cards
+  const g = document.getElementById('statsGrid'); g.innerHTML='';
+  [
+    {label:'Portfolio Value', value:eur0.format(totalVal), sub:'', cls:''},
+    {label:'Return', value:pct(retPct), sub:eur0.format(retEur)+' absolute', cls:retPct>=0?'pos':'neg'},
+    {label:'Invested Capital', value:eur0.format(invested), sub:'cumulative net contributions', cls:''},
+    {label:'Unrealised Gain', value:eur0.format(totalVal-invested), sub:invested>0?pct((totalVal/invested-1)*100)+' on invested':'-', cls:totalVal>=invested?'pos':'neg'},
+  ].forEach(c => {
+    const d=document.createElement('div'); d.className='stat-card';
+    d.innerHTML=`<div class="lbl">${c.label}</div><div class="val">${c.value}</div><div class="sub ${c.cls}">${c.sub}</div>`;
+    g.appendChild(d);
+  });
+
+  // Donut
+  kill('allocation');
+  if (pos?.length) {
+    S.charts.allocation = new Chart(document.getElementById('allocationChart'), {
+      type:'doughnut',
+      data:{
+        labels: pos.map(p=>sname(p.fund)),
+        datasets:[{ data:pos.map(p=>p.value), backgroundColor:PAL.slice(0,pos.length), borderColor:'#1e293b', borderWidth:3, hoverOffset:8 }]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false, cutout:'65%',
+        plugins:{
+          legend:{ display:true, position:'right', labels:{ boxWidth:10, font:{size:11}, color:'#94a3b8', padding:8 } },
+          tooltip:{ backgroundColor:'#1e293b', borderColor:'#334155', borderWidth:1,
+            callbacks:{ label: c => ` ${eur0.format(c.raw)} (${(c.raw/totalVal*100).toFixed(1)}%)` } }
+        }
+      }
+    });
+  }
+
+  // Holdings table
+  const tbl = document.getElementById('holdingsTable');
+  if (pos?.length) {
+    tbl.innerHTML=`<thead><tr><th>Fund</th><th style="text-align:right">Units</th><th style="text-align:right">Price</th><th style="text-align:right">Value</th><th style="text-align:right">Weight</th></tr></thead>`;
+    const tb=tbl.createTBody();
+    pos.forEach((p,i)=>{
+      const pct_=(totalVal>0?(p.value/totalVal*100):0), col=PAL[i%PAL.length];
+      tb.insertRow().innerHTML=`
+        <td><span class="dot" style="background:${col}"></span>${sname(p.fund)}</td>
+        <td style="text-align:right;color:var(--muted)">${p.units.toFixed(3)}</td>
+        <td style="text-align:right;color:var(--muted)">${eur2.format(p.price)}</td>
+        <td style="text-align:right;font-weight:600">${eur0.format(p.value)}</td>
+        <td style="text-align:right">
+          <span style="color:var(--muted);font-size:11px;margin-right:6px">${pct_.toFixed(1)}%</span>
+          <span class="bar-wrap"><span class="bar-inner" style="width:${pct_}%;background:${col}"></span></span>
+        </td>`;
+    });
+  } else {
+    tbl.innerHTML='<tbody><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">Load Posiciones file for holdings detail</td></tr></tbody>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// PERFORMANCE TAB
+// ═══════════════════════════════════════════════════════
+function renderPerformance() {
+  kill('perf');
+  const data = filterRange(S.history, S.perfRange);
+  if (!data.length) return;
+
+  const mode = S.perfMode;
+  const col = mode==='value'?'#3B82F6': mode==='base100'?'#10B981': mode==='earned'?'#10B981':'#F59E0B';
+  const yVals = data.map(r => mode==='value'?r.value: mode==='base100'?r.base100: mode==='earned'?r.returnEur:r.returnPct);
+
+  S.charts.perf = new Chart(document.getElementById('perfChart'), {
+    type:'line',
+    data:{ labels:data.map(r=>r.date), datasets:[{
+      data:yVals, borderColor:col, borderWidth:2, fill:true,
+      backgroundColor:ha(col,.08), pointRadius:0, tension:.25,
+    }]},
+    options:{
+      ...BASE,
+      scales:{
+        x: timeXScale(data.length>180?'month':'week'),
+        y:{ grid:{color:'#1e293b'}, ticks:{ maxTicksLimit:6,
+          callback: v => (mode==='value'||mode==='earned')?eur0.format(v): mode==='base100'?v.toFixed(1): v.toFixed(1)+'%'
+        }},
+      },
+      plugins:{ ...BASE.plugins, tooltip:{ ...BASE.plugins.tooltip,
+        callbacks:{ label: c => (mode==='value'||mode==='earned')?' '+eur0.format(c.raw): mode==='base100'?' '+c.raw.toFixed(2): ' '+pct(c.raw) }
+      }},
+    }
+  });
+
+  // Metrics
+  const hist=S.history, lat=hist[hist.length-1], fst=hist[0];
+  const days=(new Date(lat.date)-new Date(fst.date))/864e5;
+  const vol=calcVol(hist), maxDD=calcMaxDD(hist);
+  const cagr=days>30?((lat.base100/fst.base100)**(365/days)-1)*100:lat.returnPct;
+  const sharpe=vol>0?cagr/vol:0;
+
+  document.getElementById('perfMetrics').innerHTML = [
+    {l:'CAGR',              v:pct(cagr),               c:cagr>=0?'pos':'neg'},
+    {l:'Total Return',      v:pct(lat.returnPct),       c:lat.returnPct>=0?'pos':'neg'},
+    {l:'Ann. Volatility',   v:vol.toFixed(1)+'%',       c:''},
+    {l:'Max Drawdown',      v:pct(maxDD),               c:'neg'},
+    {l:'Sharpe (rf=0)',     v:sharpe.toFixed(2),        c:''},
+    {l:'Period',            v:days>365?`${(days/365).toFixed(1)}y`:`${Math.round(days)}d`, c:''},
+  ].map(m=>`<div class="metric"><div class="ml">${m.l}</div><div class="mv ${m.c}">${m.v}</div></div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// CONTRIBUTIONS TAB
+// ═══════════════════════════════════════════════════════
+function renderContributions() {
+  kill('contrib'); kill('mContrib');
+  const hist=S.history;
+  if (!hist?.length) return;
+
+  // Area chart
+  S.charts.contrib = new Chart(document.getElementById('contribChart'), {
+    type:'line',
+    data:{ datasets:[
+      { label:'Portfolio Value',    data:hist.map(r=>({x:r.date,y:r.value})),
+        borderColor:'#3B82F6', borderWidth:2, fill:false, pointRadius:0, tension:.2, order:1 },
+      { label:'Invested Capital',   data:hist.map(r=>({x:r.date,y:r.totalContrib})),
+        borderColor:'#10B981', borderWidth:2, pointRadius:0, tension:.2, order:2,
+        fill:{ target:'-1', below:ha('#10B981',.07), above:ha('#3B82F6',.12) } },
+    ]},
+    options:{
+      ...BASE,
+      scales:{ x:timeXScale('month'), y:{ grid:{color:'#1e293b'}, ticks:{ callback:v=>eur0.format(v) } } },
+      plugins:{ ...BASE.plugins,
+        legend:{ display:true, labels:{ color:'#94a3b8', boxWidth:12, usePointStyle:true, font:{size:12} } },
+        tooltip:{ ...BASE.plugins.tooltip, callbacks:{ label:c=>` ${c.dataset.label}: ${eur0.format(c.raw.y)}` } },
+      },
+    }
+  });
+
+  // Monthly bars
+  const monthly={};
+  hist.forEach(r=>{ if(r.dailyContrib>0){ const m=r.date.slice(0,7); monthly[m]=(monthly[m]||0)+r.dailyContrib; } });
+  const mKeys=Object.keys(monthly).sort(), mVals=mKeys.map(k=>monthly[k]);
+
+  S.charts.mContrib = new Chart(document.getElementById('monthlyContribChart'), {
+    type:'bar',
+    data:{ labels:mKeys, datasets:[{ data:mVals, backgroundColor:ha('#10B981',.65), borderColor:'#10B981', borderWidth:1, borderRadius:4 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#1e293b', borderColor:'#334155', borderWidth:1, callbacks:{label:c=>` ${eur0.format(c.raw)}`} } },
+      scales:{ x:{grid:{display:false},ticks:{maxTicksLimit:12}}, y:{grid:{color:'#1e293b'}, ticks:{callback:v=>eur0.format(v)}} },
+    }
+  });
+
+  // Summary table
+  const lat=hist[hist.length-1];
+  const tv=lat.value, ti=lat.totalContrib, g=tv-ti, avg=mVals.length?mVals.reduce((a,b)=>a+b,0)/mVals.length:0;
+  document.getElementById('contribStats').innerHTML=[
+    ['Total Invested', eur0.format(ti)],
+    ['Current Value',  eur0.format(tv)],
+    ['Unrealised Gain', eur0.format(g)],
+    ['ROI', pct((tv/ti-1)*100)],
+    ['Avg Monthly Contribution', eur0.format(avg)],
+    ['Contribution Months', mKeys.length+''],
+    ['Cumulative Tax Withheld', eur2.format(lat.totalTax)],
+  ].map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// FORECAST — MONTE CARLO
+// ═══════════════════════════════════════════════════════
+function randn() {
+  let u=0,v=0; while(!u) u=Math.random(); while(!v) v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+
+function pctile(arr, p) {
+  const s=[...arr].sort((a,b)=>a-b);
+  return s[Math.min(Math.floor(p/100*s.length), s.length-1)];
+}
+
+function runMC(start, mc, ar, av, months, sims) {
+  const mr = Math.pow(1+ar/100,1/12)-1, mv=(av/100)/Math.sqrt(12);
+  const ps=[5,10,25,50,75,90,95];
+  const bands=ps.map(()=>[]); const finals=[];
+  const paths=Array.from({length:sims},()=>{
+    let v=start; const p=[v];
+    for(let m=0;m<months;m++){ v=Math.max(0,v*(1+mr+mv*randn())+mc); p.push(v); }
+    return p;
+  });
+  for(let m=0;m<=months;m++){
+    const vs=paths.map(p=>p[m]);
+    ps.forEach((p,i)=>bands[i].push(pctile(vs,p)));
+  }
+  paths.forEach(p=>finals.push(p[months]));
+  return {bands,ps,finals};
+}
+
+let _fcInit=false;
+function initForecastDefaults() {
+  if (_fcInit || !S.history?.length) return;
+  const hist=S.history, lat=hist[hist.length-1], fst=hist[0];
+  const days=(new Date(lat.date)-new Date(fst.date))/864e5;
+  const vol=calcVol(hist);
+  document.getElementById('fcVol').value=Math.min(40,Math.max(1,vol)).toFixed(1);
+  document.getElementById('fcMonthly').value=2000;
+  updateFcLabels(); _fcInit=true;
+}
+
+function updateFcLabels() {
+  document.getElementById('fcReturnVal').textContent=parseFloat(document.getElementById('fcReturn').value).toFixed(1)+'%';
+  document.getElementById('fcVolVal').textContent=parseFloat(document.getElementById('fcVol').value).toFixed(1)+'%';
+  document.getElementById('fcHorizonVal').textContent=document.getElementById('fcHorizon').value+' yrs';
+  document.getElementById('fcSimsVal').textContent=document.getElementById('fcSims').value;
+}
+
+function renderForecast() { initForecastDefaults(); }
+
+function execForecast() {
+  const hist=S.history; if(!hist?.length) return;
+  const lat=hist[hist.length-1];
+  const mc=parseFloat(document.getElementById('fcMonthly').value)||0;
+  const ar=parseFloat(document.getElementById('fcReturn').value);
+  const av=parseFloat(document.getElementById('fcVol').value);
+  const yrs=parseInt(document.getElementById('fcHorizon').value);
+  const sims=parseInt(document.getElementById('fcSims').value);
+  const months=yrs*12;
+
+  const {bands,ps,finals}=runMC(lat.value,mc,ar,av,months,sims);
+
+  // Date labels for forecast
+  const startD=new Date(lat.date);
+  const fcDates=Array.from({length:months+1},(_,m)=>{
+    const d=new Date(startD); d.setMonth(d.getMonth()+m); return d.toISOString().slice(0,10);
+  });
+
+  // Deterministic
+  const mr=Math.pow(1+ar/100,1/12)-1;
+  const determ=[lat.value];
+  for(let m=0;m<months;m++) determ.push(determ[determ.length-1]*(1+mr)+mc);
+
+  kill('forecast');
+  const datasets=[];
+
+  // Historical
+  datasets.push({ label:'Historical', data:hist.map(r=>({x:r.date,y:r.value})),
+    borderColor:'#10B981', borderWidth:2, pointRadius:0, tension:.2, fill:false, order:10 });
+
+  // Bands: pairs [lo, hi]
+  [[0,6],[1,5],[2,4]].forEach(([lo,hi],idx)=>{
+    const alpha=[.06,.11,.17][idx];
+    datasets.push({ label:`p${ps[lo]}`, data:fcDates.map((d,i)=>({x:d,y:bands[lo][i]})), borderWidth:0, pointRadius:0, fill:false, order:3-idx });
+    datasets.push({ label:`p${ps[hi]}`, data:fcDates.map((d,i)=>({x:d,y:bands[hi][i]})), borderWidth:0, pointRadius:0, fill:'-1', backgroundColor:ha('#3B82F6',alpha), order:3-idx });
+  });
+
+  // Median
+  datasets.push({ label:'Median (p50)', data:fcDates.map((d,i)=>({x:d,y:bands[3][i]})),
+    borderColor:'#3B82F6', borderWidth:2, borderDash:[5,3], pointRadius:0, fill:false, order:5 });
+
+  // Deterministic
+  datasets.push({ label:'Deterministic', data:fcDates.map((d,i)=>({x:d,y:determ[i]})),
+    borderColor:'#F59E0B', borderWidth:1.5, borderDash:[3,3], pointRadius:0, fill:false, order:6 });
+
+  // Cumulative contributions: historical + forecast projection
+  const histContrib = hist.map(r=>({x:r.date, y:r.totalContrib}));
+  const fcContrib   = fcDates.map((d,i)=>({x:d, y:lat.totalContrib + i*mc}));
+  datasets.push({ label:'Total Invested', data:[...histContrib, ...fcContrib.slice(1)],
+    borderColor:'rgba(148,163,184,.55)', borderWidth:1.5, borderDash:[3,4], pointRadius:0, fill:false, order:7 });
+
+  const nowPlugin = {
+    id:'nowLine',
+    afterDraw(chart) {
+      const {ctx,scales,chartArea} = chart;
+      const xPx = scales.x.getPixelForValue(lat.date);
+      if (xPx < chartArea.left || xPx > chartArea.right) return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(xPx, chartArea.top);
+      ctx.lineTo(xPx, chartArea.bottom);
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4,4]);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.font = '10px Inter,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Now', xPx, chartArea.top - 4);
+      ctx.restore();
+    }
+  };
+  S.charts.forecast = new Chart(document.getElementById('forecastChart'), {
+    type:'line', data:{datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      layout:{padding:{top:14}},
+      scales:{
+        x:{type:'time',time:{unit:'year',tooltipFormat:'MMM yyyy'},grid:{color:'#1e293b'}},
+        y:{grid:{color:'#1e293b'},
+           title:{display:true,text:'Portfolio Value (€)',color:'#64748b',font:{size:11}},
+           ticks:{callback:v=>eur0.format(v)}}
+      },
+      plugins:{
+        legend:{display:false},
+        tooltip:{backgroundColor:'#1e293b',borderColor:'#334155',borderWidth:1,
+          filter:i=>{
+            if (['p5','p10','p25','p75','p90','p95'].includes(i.dataset.label)) return false;
+            if (i.dataset.label==='Historical' && i.parsed.x > new Date(lat.date).getTime()) return false;
+            return true;
+          },
+          callbacks:{label:c=>` ${c.dataset.label}: ${eur0.format(c.raw.y)}`}
+        },
+      },
+    },
+    plugins:[nowPlugin],
+  });
+
+  document.getElementById('fcSubtitle').textContent=`${sims.toLocaleString()} simulations · ${yrs}y`;
+
+  document.getElementById('fcLegend').innerHTML=[
+    { color:'#10B981', dash:false, label:'Historical',
+      tip:'Actual portfolio value from your data — the ground truth the simulation starts from.' },
+    { color:'#3B82F6', dash:true,  label:'Median (p50)',
+      tip:'The middle outcome across all simulations: half of runs end above this line, half below. A realistic central estimate, not a guarantee.' },
+    { color:'#F59E0B', dash:true,  label:'Deterministic',
+      tip:'A straight-line projection using a fixed annual return (your CAGR). No randomness — assumes the average rate holds perfectly every year. Shows what a constant-growth model would predict.' },
+    { color:'rgba(59,130,246,.35)', dash:false, label:'Confidence bands',
+      tip:'Shaded regions show the spread of simulation outcomes: inner band = p25–p75 (middle 50% of runs), outer band = p5–p95 (90% of runs). Wider bands mean more uncertainty.' },
+  ].map(({color,dash,label,tip})=>`
+    <span class="tip-wrap" style="display:inline-flex;align-items:center;gap:5px;cursor:default">
+      <span style="width:18px;height:2px;background:${color};display:inline-block;border-radius:1px;${dash?'background:repeating-linear-gradient(to right,'+color+' 0,'+color+' 4px,transparent 4px,transparent 7px)':''}"></span>
+      <span style="color:#94a3b8">${label}</span>
+      <span class="tip-icon">i</span>
+      <span class="tip-box" style="left:50%;transform:translateX(-50%)">${tip}</span>
+    </span>`).join('');
+
+  // Summary
+  const p10=pctile(finals,10), p50=pctile(finals,50), p90=pctile(finals,90);
+  document.getElementById('forecastResults').innerHTML=`
+    <div class="res-card"><div class="rl">Pessimistic (p10)</div><div class="rv neg">${eur0.format(p10)}</div></div>
+    <div class="res-card"><div class="rl">Median (p50)</div><div class="rv" style="color:var(--accent)">${eur0.format(p50)}</div></div>
+    <div class="res-card"><div class="rl">Optimistic (p90)</div><div class="rv pos">${eur0.format(p90)}</div></div>`;
+
+  // Distribution histogram
+  kill('fcDist'); kill('fcAnnual');
+  const minV=pctile(finals,1), maxV=pctile(finals,99), bw=(maxV-minV)/30;
+  const counts=new Array(30).fill(0);
+  finals.forEach(v=>{ const b=Math.min(29,Math.floor((v-minV)/bw)); if(b>=0) counts[b]++; });
+  const p10i=Math.floor((p10-minV)/bw), p90i=Math.floor((p90-minV)/bw);
+  S.charts.fcDist = new Chart(document.getElementById('forecastDistChart'), {
+    type:'bar',
+    data:{ labels:counts.map((_,i)=>eur0.format(minV+(i+.5)*bw)), datasets:[{
+      data:counts, borderWidth:0, borderRadius:2,
+      backgroundColor:counts.map((_,i)=>i<p10i?ha('#EF4444',.6):i>p90i?ha('#10B981',.6):ha('#3B82F6',.6)),
+    }]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#1e293b',borderColor:'#334155',borderWidth:1,callbacks:{label:c=>` ${c.raw} runs`,title:()=>''}}},
+      scales:{x:{display:false},y:{grid:{color:'#1e293b'},ticks:{maxTicksLimit:4}}},
+    }
+  });
+
+  // ── Cumulative return % chart: historical + forecast with confidence bands
+  // ps=[5,10,25,50,75,90,95]: indices 0..6
+  const offset = lat.returnPct; // offset so forecast continues from actual current return
+
+  const histCumData    = S.history.map(r=>({x:r.date, y:parseFloat(r.returnPct.toFixed(2))}));
+  const contribMarkers = S.history
+    .filter(r=>r.dailyContrib>0)
+    .map(r=>({x:r.date, y:parseFloat(r.returnPct.toFixed(2)), amt:r.dailyContrib}));
+
+  const mkFc = pi => fcDates.map((d,m)=>({x:d, y:parseFloat((offset+(bands[pi][m]/bands[pi][0]-1)*100).toFixed(2))}));
+  const fcCumP5  = mkFc(0), fcCumP25 = mkFc(2), fcCumMed = mkFc(3);
+  const fcCumP75 = mkFc(4), fcCumP95 = mkFc(6);
+  const fcCumDet = fcDates.map((d,m)=>({x:d, y:parseFloat((offset+(determ[m]/determ[0]-1)*100).toFixed(2))}));
+
+  S.charts.fcAnnual = new Chart(document.getElementById('fcAnnualChart'), {
+    type:'line',
+    data:{datasets:[
+      { label:'Historical',    data:histCumData,    borderColor:'#10B981', borderWidth:2, pointRadius:0, fill:false, tension:.2, order:10 },
+      { label:'Contributions', data:contribMarkers, type:'scatter', pointRadius:4, pointStyle:'circle',
+        backgroundColor:ha('#10B981',.55), borderColor:'#10B981', borderWidth:1, showLine:false, order:9 },
+      { label:'p5',            data:fcCumP5,  borderWidth:0, pointRadius:0, fill:false, order:4 },
+      { label:'p95',           data:fcCumP95, borderWidth:0, pointRadius:0, fill:'-1', backgroundColor:ha('#3B82F6',.09), order:4 },
+      { label:'p25',           data:fcCumP25, borderWidth:0, pointRadius:0, fill:false, order:3 },
+      { label:'p75',           data:fcCumP75, borderWidth:0, pointRadius:0, fill:'-1', backgroundColor:ha('#3B82F6',.2), order:3 },
+      { label:'Median (p50)',  data:fcCumMed, borderColor:'#3B82F6', borderWidth:2, pointRadius:0, fill:false, tension:.3, order:5 },
+      { label:'Deterministic', data:fcCumDet, borderColor:'#F59E0B', borderWidth:1.5, borderDash:[4,3], pointRadius:0, fill:false, tension:.3, order:6 },
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      layout:{padding:{top:14}},
+      scales:{
+        x:{type:'time', time:{unit:'year', tooltipFormat:'MMM yyyy'}, grid:{color:'#1e293b'}},
+        y:{grid:{color:'#1e293b'},
+           title:{display:true, text:'Cumulative Return (%)', color:'#64748b', font:{size:11}},
+           ticks:{callback:v=>(v>=0?'+':'')+v.toFixed(0)+'%', maxTicksLimit:6, color:'#94a3b8'}}
+      },
+      plugins:{
+        legend:{display:true, position:'bottom', labels:{color:'#94a3b8', boxWidth:10, font:{size:10},
+          filter:i=>!['p5','p25','p75','p95'].includes(i.text)}},
+        tooltip:{backgroundColor:'#1e293b', borderColor:'#334155', borderWidth:1,
+          filter:i=>!['p5','p25','p75','p95'].includes(i.dataset.label),
+          callbacks:{
+            label:c=>{
+              if (c.dataset.label==='Contributions') return ` Contribution: +${eur0.format(c.raw.amt)}`;
+              if (c.dataset.label==='p95') return ` p5–p95 band: ${fcCumP5[c.dataIndex]?.y?.toFixed(1)}% – ${fcCumP95[c.dataIndex]?.y?.toFixed(1)}%`;
+              if (c.dataset.label==='p75') return ` p25–p75 band: ${fcCumP25[c.dataIndex]?.y?.toFixed(1)}% – ${fcCumP75[c.dataIndex]?.y?.toFixed(1)}%`;
+              const v = typeof c.raw==='object'?c.raw.y:c.raw;
+              return ` ${c.dataset.label}: ${v>=0?'+':''}${(+v).toFixed(1)}%`;
+            }
+          }
+        },
+      },
+    },
+    plugins:[nowPlugin],
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// ANALYSIS TAB
+// ═══════════════════════════════════════════════════════
+function renderAnalysis() {
+  kill('drawdown'); kill('rolling');
+  const hist=S.history; if(!hist?.length) return;
+
+  // Drawdown
+  const dd=getDrawdowns(hist);
+  S.charts.drawdown = new Chart(document.getElementById('drawdownChart'), {
+    type:'line',
+    data:{ labels:hist.map(r=>r.date), datasets:[{
+      data:dd, borderColor:'#EF4444', borderWidth:1.5,
+      fill:{target:{value:0},below:ha('#EF4444',.18)}, pointRadius:0, tension:.2,
+    }]},
+    options:{ ...BASE,
+      scales:{ x:timeXScale('month'), y:{grid:{color:'#1e293b'},ticks:{callback:v=>v.toFixed(1)+'%',maxTicksLimit:6}} },
+      plugins:{ ...BASE.plugins, tooltip:{ ...BASE.plugins.tooltip, callbacks:{label:c=>` Drawdown: ${c.raw.toFixed(2)}%`} } },
+    }
+  });
+
+  renderRolling();
+
+  // Stats table
+  const lat=hist[hist.length-1], fst=hist[0];
+  const days=(new Date(lat.date)-new Date(fst.date))/864e5;
+  const vol=calcVol(hist), maxDD=calcMaxDD(hist);
+  const cagr=days>30?((lat.base100/fst.base100)**(365/days)-1)*100:lat.returnPct;
+  const sharpe=vol>0?cagr/vol:0, calmar=maxDD<0?cagr/Math.abs(maxDD):0;
+
+  const STAT_TIPS = {
+    'Total Return':       'Cumulative portfolio gain since the first contribution, calculated as (current value − net invested) ÷ net invested.',
+    'CAGR':               'Compound Annual Growth Rate — the smoothed yearly return rate that would produce the same total return over the data period.',
+    'Ann. Volatility':    'Annualised standard deviation of daily returns (×√252). Measures how much the portfolio value fluctuates day-to-day.',
+    'Max Drawdown':       'Largest peak-to-trough decline observed. A drawdown of −10% means the portfolio fell 10% from a previous high before recovering.',
+    'Sharpe Ratio (rf=0)':'Risk-adjusted return: CAGR divided by annualised volatility, assuming a 0% risk-free rate. Higher is better; >1 is generally considered good.',
+    'Calmar Ratio':       'CAGR divided by the absolute max drawdown. Rewards high returns relative to the worst loss experienced. Higher is better.',
+    'Data Period':        'Length of time covered by the valuation history, from the first recorded date to the latest.',
+    'Total Invested':     'Sum of all net contributions (deposits minus withdrawals) since inception.',
+    'Current Value':      'Total market value of all holdings as of the latest data point.',
+    'Tax Withheld':       'Cumulative withholding tax deducted on distributions or realised gains, as reported by the platform.',
+  };
+  document.getElementById('statsTable').innerHTML=[
+    ['Total Return',       pct(lat.returnPct)],
+    ['CAGR',               pct(cagr)],
+    ['Ann. Volatility',    vol.toFixed(1)+'%'],
+    ['Max Drawdown',       pct(maxDD)],
+    ['Sharpe Ratio (rf=0)',sharpe.toFixed(2)],
+    ['Calmar Ratio',       calmar.toFixed(2)],
+    ['Data Period',        days>365?`${(days/365).toFixed(1)} years`:`${Math.round(days)} days`],
+    ['Total Invested',     eur0.format(lat.totalContrib)],
+    ['Current Value',      eur0.format(lat.value)],
+    ['Tax Withheld',       eur2.format(lat.totalTax)],
+  ].map(([k,v])=>{
+    const tip = STAT_TIPS[k] ? `<span class="tip-icon">i</span><span class="tip-box">${STAT_TIPS[k]}</span>` : '';
+    return `<tr><td><span class="tip-wrap">${k}${tip}</span></td><td>${v}</td></tr>`;
+  }).join('');
+
+  renderHeatmap();
+}
+
+function renderRolling() {
+  kill('rolling');
+  const hist=S.history, w=S.rollingW;
+  const rolling=rollingRet(hist,w);
+  S.charts.rolling = new Chart(document.getElementById('rollingChart'), {
+    type:'line',
+    data:{ labels:hist.map(r=>r.date), datasets:[{
+      data:rolling, borderWidth:1.5, pointRadius:0, tension:0,
+      fill:{target:{value:0},above:ha('#10B981',.18),below:ha('#EF4444',.18)},
+      segment:{ borderColor: ctx => (ctx.p0.parsed.y??0)>=0?'#10B981':'#EF4444' },
+    }]},
+    options:{ ...BASE,
+      scales:{ x:timeXScale('month'), y:{grid:{color:'#1e293b'},ticks:{callback:v=>v.toFixed(1)+'%',maxTicksLimit:6}} },
+      plugins:{ ...BASE.plugins, tooltip:{ ...BASE.plugins.tooltip,
+        callbacks:{label:c=>c.raw==null?'':` ${w}d annualised: ${c.raw.toFixed(2)}%`}
+      }},
+    }
+  });
+}
+
+function renderHeatmap() {
+  const hist=S.history;
+  const byMonth={};
+  hist.forEach(r=>{ const m=r.date.slice(0,7); if(!byMonth[m]||r.date>byMonth[m].date) byMonth[m]=r; });
+  const months=Object.keys(byMonth).sort();
+  const rets={};
+  for(let i=1;i<months.length;i++){
+    const p=byMonth[months[i-1]], c=byMonth[months[i]];
+    if(p.base100>0) rets[months[i]]=(c.base100/p.base100-1)*100;
+  }
+  const years=[...new Set(months.map(m=>m.slice(0,4)))].sort();
+  const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const tbl=document.createElement('table'); tbl.className='hmap';
+  const head=tbl.createTHead().insertRow();
+  let th=document.createElement('th'); tbl.tHead.rows[0].appendChild(th);
+  MN.forEach(m=>{ const t=document.createElement('th'); t.textContent=m; head.appendChild(t); });
+
+  const body=tbl.createTBody();
+  years.forEach(yr=>{
+    const row=body.insertRow();
+    const yrTd=row.insertCell(); yrTd.className='yr'; yrTd.textContent=yr;
+    for(let mo=1;mo<=12;mo++){
+      const key=`${yr}-${String(mo).padStart(2,'0')}`, td=row.insertCell();
+      if(rets[key]!==undefined){
+        const v=rets[key], intensity=Math.min(1,Math.abs(v)/4);
+        td.style.background=v>=0?ha('#10B981',.15+intensity*.7):ha('#EF4444',.15+intensity*.7);
+        td.style.color=Math.abs(v)>2?'#fff':'#94a3b8';
+        td.textContent=v.toFixed(1)+'%';
+      } else { td.style.color='#334155'; td.textContent='—'; }
+    }
+  });
+
+  const c=document.getElementById('heatmapContainer'); c.innerHTML=''; c.appendChild(tbl);
+}
+
+// ═══════════════════════════════════════════════════════
+// HOLDINGS TAB — FUND HISTORY
+// ═══════════════════════════════════════════════════════
+function parseFundHistory(text) {
+  try { return JSON.parse(text); } catch(e) { return null; }
+}
+
+function filterFundRange(base100obj, range) {
+  const dates = Object.keys(base100obj).sort();
+  if (!dates.length) return {};
+  const last = new Date(dates[dates.length-1]);
+  let start;
+  if      (range==='1M')  { start=new Date(last); start.setMonth(start.getMonth()-1); }
+  else if (range==='3M')  { start=new Date(last); start.setMonth(start.getMonth()-3); }
+  else if (range==='6M')  { start=new Date(last); start.setMonth(start.getMonth()-6); }
+  else if (range==='YTD') { start=new Date(last.getFullYear(),0,1); }
+  else if (range==='1Y')  { start=new Date(last); start.setFullYear(start.getFullYear()-1); }
+  else return base100obj;
+  const s=start.toISOString().slice(0,10);
+  const subset={};
+  dates.filter(d=>d>=s).forEach(d=>subset[d]=base100obj[d]);
+  return subset;
+}
+
+function rebase100(subset) {
+  const dates=Object.keys(subset).sort();
+  if (!dates.length) return {};
+  const base=subset[dates[0]];
+  const out={};
+  dates.forEach(d=>out[d]=parseFloat(((subset[d]/base)*100).toFixed(4)));
+  return out;
+}
+
+function renderHoldings() {
+  const fh = S.fundHistory;
+  if (!fh || !fh.funds || !fh.funds.length) {
+    document.getElementById('holdingsNoData').style.display='';
+    document.getElementById('holdingsContent').style.display='none';
+    return;
+  }
+  document.getElementById('holdingsNoData').style.display='none';
+  document.getElementById('holdingsContent').style.display='';
+
+  const filter = S.holdingsFilter, range = S.holdingsRange;
+  const funds = fh.funds.filter(f => filter==='all' || (filter==='equity'&&f.type==='equity') || (filter==='bond'&&f.type==='bond'));
+
+  // ── Mini-cards
+  const cardsEl = document.getElementById('fundCards');
+  cardsEl.innerHTML = '';
+  fh.funds.forEach((f,i) => {
+    const sub = filterFundRange(f.base100, range);
+    const rb  = rebase100(sub);
+    const dates = Object.keys(rb).sort();
+    const ret = dates.length >= 2 ? rb[dates[dates.length-1]] - 100 : 0;
+    const col = PAL[i % PAL.length];
+    const el = document.createElement('div'); el.className='fund-card';
+    const yhUrl = `https://finance.yahoo.com/quote/${encodeURIComponent(f.ticker)}`;
+    el.innerHTML=`
+      <div class="fc-top">
+        <span class="dot" style="background:${col};width:10px;height:10px;border-radius:50%"></span>
+        <span class="fc-name">${f.short}</span>
+        <span class="lb-badge ${f.type==='equity'?'eq':'bd'}">${f.type==='equity'?'EQ':'BD'}</span>
+        <a href="${yhUrl}" target="_blank" rel="noopener" class="fc-ext" title="Open ${f.ticker} on Yahoo Finance">↗</a>
+      </div>
+      <div class="fc-ret ${ret>=0?'pos':'neg'}">${pct(ret)}</div>
+      <div class="fc-sub">${range==='ALL'?'Since '+f.baseDate:range+' return'}</div>`;
+    cardsEl.appendChild(el);
+  });
+
+  // ── Comparison chart
+  kill('holdings');
+  const datasets = funds.map((f,i) => {
+    const colorIdx = fh.funds.indexOf(f);
+    const col = PAL[colorIdx % PAL.length];
+    const sub = filterFundRange(f.base100, range);
+    const rb  = rebase100(sub);
+    const dates = Object.keys(rb).sort();
+    return {
+      label: f.short,
+      data: dates.map(d=>({x:d, y:rb[d]})),
+      borderColor: col,
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.2,
+      fill: false,
+    };
+  });
+
+  if (datasets.length) {
+    S.charts.holdings = new Chart(document.getElementById('holdingsChart'), {
+      type: 'line', data: { datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode:'index', intersect:false },
+        scales: {
+          x: { type:'time', time:{ unit:'month', tooltipFormat:'dd MMM yyyy' }, grid:{ color:'#1e293b' } },
+          y: { grid:{ color:'#1e293b' }, ticks:{ callback: v=>'+'+(v-100).toFixed(1)+'%' } },
+        },
+        plugins: {
+          legend: { display:true, position:'bottom', labels:{ color:'#94a3b8', boxWidth:12, font:{size:11}, usePointStyle:true } },
+          tooltip: {
+            backgroundColor:'#1e293b', borderColor:'#334155', borderWidth:1,
+            itemSort: (a, b) => b.raw.y - a.raw.y,
+            callbacks: { label: c=>`  ${c.dataset.label}: ${pct(c.raw.y-100)}` }
+          },
+        },
+      }
+    });
+  }
+
+  // ── Proxy note
+  const proxies = fh.funds.filter(f=>f.proxy);
+  document.getElementById('proxyNote').textContent = proxies.length
+    ? `⚠ ${proxies.map(f=>f.short).join(', ')}: ETF proxy (same index, USD-denominated — used for relative comparison only)`
+    : '';
+  document.getElementById('proxyNote').style.display = proxies.length ? '' : 'none';
+
+  // ── Leaderboard
+  const allFundsSorted = fh.funds.map((f,i) => {
+    const sub = filterFundRange(f.base100, range);
+    const rb  = rebase100(sub);
+    const dates = Object.keys(rb).sort();
+    const ret = dates.length >= 2 ? rb[dates[dates.length-1]] - 100 : 0;
+    return { ...f, ret, colorIdx: i };
+  }).sort((a,b) => b.ret - a.ret);
+
+  const maxAbs = Math.max(...allFundsSorted.map(f=>Math.abs(f.ret)), 1);
+  const lb = document.getElementById('holdingsLeaderboard'); lb.innerHTML='';
+  const periodLabel = range==='ALL'?`since ${fh.funds[0]?.baseDate||'inception'}`:range;
+  document.getElementById('holdingsPeriodLabel').textContent = `sorted by return · ${periodLabel}`;
+
+  allFundsSorted.forEach((f,i) => {
+    const col = PAL[f.colorIdx % PAL.length];
+    const barW = Math.abs(f.ret)/maxAbs*100;
+    const row = document.createElement('div'); row.className='lb-row';
+    row.innerHTML=`
+      <div class="lb-rank">${i+1}</div>
+      <div class="lb-dot" style="background:${col}"></div>
+      <div class="lb-info">
+        <div class="lb-name">${f.name}</div>
+        <div class="lb-meta">
+          <span class="lb-badge ${f.type==='equity'?'eq':'bd'}">${f.type==='equity'?'Equity':'Bond'}</span>
+          <span class="lb-ticker">${f.ticker}${f.proxy?' · proxy':''}</span>
+        </div>
+      </div>
+      <div class="lb-bar-col">
+        <div class="lb-bar-bg"><div class="lb-bar-fg" style="width:${barW}%;background:${f.ret>=0?'var(--green)':'var(--red)'}"></div></div>
+      </div>
+      <div class="lb-pct ${f.ret>=0?'pos':'neg'}">${pct(f.ret)}</div>`;
+    lb.appendChild(row);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// TAB MANAGEMENT
+// ═══════════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
+  if      (name==='overview')      renderOverview();
+  else if (name==='performance')   renderPerformance();
+  else if (name==='contributions') renderContributions();
+  else if (name==='forecast')      renderForecast();
+  else if (name==='analysis')      renderAnalysis();
+  else if (name==='holdings')      renderHoldings();
+}
+
+// ═══════════════════════════════════════════════════════
+// FILE LOADING
+// ═══════════════════════════════════════════════════════
+function handleFiles(files) {
+  Array.from(files).forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const text=e.target.result, name=file.name.toLowerCase();
+      if (name.includes('posicion')) {
+        S.positions=parsePositions(text);
+        document.getElementById('chipPos').className='chip ok';
+        document.getElementById('chipPos').textContent='✓ '+file.name;
+      } else if (name.includes('valor')) {
+        S.history=parseHistory(text);
+        document.getElementById('chipVal').className='chip ok';
+        document.getElementById('chipVal').textContent='✓ '+file.name;
+        const lat=S.history[S.history.length-1];
+        document.getElementById('lastUpdate').textContent='Updated '+lat.date;
+      } else if (name.includes('fund_history') || (name.endsWith('.json') && !name.includes('posicion') && !name.includes('valor'))) {
+        const fh=parseFundHistory(text);
+        if (fh && fh.funds) {
+          S.fundHistory=fh;
+          document.getElementById('chipFH').className='chip ok';
+          document.getElementById('chipFH').textContent=`✓ ${fh.funds.length} funds loaded`;
+        }
+      }
+      if (S.positions||S.history||S.fundHistory) {
+        document.getElementById('dashboard').classList.add('visible');
+        const active=document.querySelector('.tab-btn.active')?.dataset.tab||'overview';
+        switchTab(active);
+      }
+    };
+    reader.readAsText(file,'UTF-8');
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// EVENTS
+// ═══════════════════════════════════════════════════════
+document.getElementById('fileInput').addEventListener('change',e=>handleFiles(e.target.files));
+
+const zone=document.getElementById('uploadZone');
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over')});
+zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
+zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag-over');handleFiles(e.dataTransfer.files)});
+
+document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+
+document.getElementById('perfMode').addEventListener('click',e=>{
+  const b=e.target.closest('.toggle-btn'); if(!b) return;
+  S.perfMode=b.dataset.mode;
+  document.querySelectorAll('#perfMode .toggle-btn').forEach(x=>x.classList.toggle('active',x===b));
+  renderPerformance();
+});
+
+document.getElementById('perfRange').addEventListener('click',e=>{
+  const b=e.target.closest('.range-btn'); if(!b) return;
+  S.perfRange=b.dataset.r;
+  document.querySelectorAll('#perfRange .range-btn').forEach(x=>x.classList.toggle('active',x===b));
+  renderPerformance();
+});
+
+document.getElementById('rollingRange').addEventListener('click',e=>{
+  const b=e.target.closest('.range-btn'); if(!b) return;
+  S.rollingW=parseInt(b.dataset.w);
+  document.querySelectorAll('#rollingRange .range-btn').forEach(x=>x.classList.toggle('active',x===b));
+  renderRolling();
+});
+
+['fcReturn','fcVol','fcHorizon','fcSims'].forEach(id=>document.getElementById(id).addEventListener('input',updateFcLabels));
+document.getElementById('runForecast').addEventListener('click',execForecast);
+
+document.getElementById('holdingsFilter').addEventListener('click',e=>{
+  const b=e.target.closest('.toggle-btn'); if(!b) return;
+  S.holdingsFilter=b.dataset.f;
+  document.querySelectorAll('#holdingsFilter .toggle-btn').forEach(x=>x.classList.toggle('active',x===b));
+  renderHoldings();
+});
+
+document.getElementById('holdingsRange').addEventListener('click',e=>{
+  const b=e.target.closest('.range-btn'); if(!b) return;
+  S.holdingsRange=b.dataset.r;
+  document.querySelectorAll('#holdingsRange .range-btn').forEach(x=>x.classList.toggle('active',x===b));
+  renderHoldings();
+});
+
+document.getElementById('todayDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+// ── Auto-load embedded data (injected by build.py)
+if (AUTO_DATA) {
+  if (AUTO_DATA.posiciones) {
+    S.positions = parsePositions(AUTO_DATA.posiciones);
+    document.getElementById('chipPos').className = 'chip ok';
+    document.getElementById('chipPos').textContent = '✓ ' + AUTO_DATA.filenames.posiciones;
+  }
+  if (AUTO_DATA.valor) {
+    S.history = parseHistory(AUTO_DATA.valor);
+    document.getElementById('chipVal').className = 'chip ok';
+    document.getElementById('chipVal').textContent = '✓ ' + AUTO_DATA.filenames.valor;
+    document.getElementById('lastUpdate').textContent = 'Updated ' + S.history[S.history.length-1].date;
+  }
+  if (AUTO_DATA.fundHistory) {
+    S.fundHistory = AUTO_DATA.fundHistory;
+    document.getElementById('chipFH').className = 'chip ok';
+    document.getElementById('chipFH').textContent = '✓ ' + S.fundHistory.funds.length + ' funds loaded';
+  }
+  if (S.positions || S.history || S.fundHistory) {
+    document.getElementById('dashboard').classList.add('visible');
+    switchTab('overview');
+  }
+}
+</script>
+</body>
+</html>
