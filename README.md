@@ -1,5 +1,7 @@
 # Portfolio Dashboard
 
+Available at [[https://vcosqui.github.io/portfolio-dashboard/dashboard.html]]
+
 A self-contained single-file investment portfolio dashboard for index fund investors. No server, no build step — just open `dashboard.html` in a browser.
 
 ## Features
