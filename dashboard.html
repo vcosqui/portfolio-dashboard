@@ -277,7 +277,7 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
         <div class="inp-grp">
           <div class="inp-row">
             <label>Monthly Contribution</label>
-            <div class="inp-num"><input type="number" id="fcMonthly" min="0" step="100" value="2000"> €</div>
+            <div class="inp-num"><input type="number" id="fcMonthly" min="0" step="100" value="500"> €</div>
           </div>
         </div>
         <div class="inp-grp">
@@ -289,8 +289,8 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
           <input type="range" id="fcVol" min="1" max="40" step="0.5" value="10">
         </div>
         <div class="inp-grp">
-          <div class="inp-row"><label>Horizon</label><span class="inp-num" id="fcHorizonVal">15 yrs</span></div>
-          <input type="range" id="fcHorizon" min="1" max="35" step="1" value="15">
+          <div class="inp-row"><label>Horizon</label><span class="inp-num" id="fcHorizonVal">30 yrs</span></div>
+          <input type="range" id="fcHorizon" min="1" max="35" step="1" value="30">
         </div>
         <div class="inp-grp">
           <div class="inp-row"><label>Simulations</label><span class="inp-num" id="fcSimsVal">500</span></div>
@@ -825,7 +825,7 @@ function initForecastDefaults() {
   const days=(new Date(lat.date)-new Date(fst.date))/864e5;
   const vol=calcVol(hist);
   document.getElementById('fcVol').value=Math.min(40,Math.max(1,vol)).toFixed(1);
-  document.getElementById('fcMonthly').value=2000;
+  document.getElementById('fcMonthly').value=500;
   updateFcLabels(); _fcInit=true;
 }
 
