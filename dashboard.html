@@ -277,7 +277,7 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
         <div class="inp-grp">
           <div class="inp-row">
             <label>Monthly Contribution</label>
-            <div class="inp-num"><input type="number" id="fcMonthly" min="0" step="100" value="500"> €</div>
+            <div class="inp-num"><input type="number" id="fcMonthly" min="0" step="100" value="100"> €</div>
           </div>
         </div>
         <div class="inp-grp">
@@ -333,7 +333,7 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
       <div class="prog-wrap" id="dlProgWrap" style="display:none"><div class="prog-inner" id="dlProgBar" style="width:0%"></div></div>
       <div id="dlStatus" style="font-size:12px;margin-top:10px;min-height:16px"></div>
       <div id="dlError" style="font-size:12px;margin-top:8px;color:#f87171;display:none"></div>
-      <div style="font-size:11px;margin-top:16px;opacity:.5">Uses corsproxy.io + Yahoo Finance. Data may take ~15s.</div>
+      <div style="font-size:11px;margin-top:16px;opacity:.5">Uses Yahoo Finance via CORS proxy (allorigins / corsproxy.io / codetabs). Data may take ~15s.</div>
     </div>
     <div id="holdingsContent" style="display:none">
       <div class="fund-cards" id="fundCards"></div>
@@ -414,7 +414,11 @@ const AUTO_DATA = null;
 // ═══════════════════════════════════════════════════════
 const S = { positions: null, history: null, fundHistory: null, charts: {}, perfMode: 'value', perfRange: 'ALL', rollingW: 30, holdingsRange: 'YTD', holdingsFilter: 'all' };
 
-const CORS_PROXY = 'https://corsproxy.io/?url=';
+const CORS_PROXIES = [
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+  url => `https://api.codetabs.com/v1/proxy?quest=${url}`,
+];
 const FUND_TICKERS = [
   { isin:'IE00BFPM9V94', name:'Vanguard US 500 Stk Idx Eur -Ins Plus',           short:'US 500',      ticker:'VUSA.AS', type:'equity',   proxy:false,  currency:'EUR' },
   { isin:'IE00BFPM9L96', name:'Vanguard European Stk Idx Eur -Ins Plus',          short:'European',    ticker:'VEUR.AS', type:'equity',   proxy:false,  currency:'EUR' },
@@ -430,8 +434,15 @@ const FUND_TICKERS = [
 
 async function fetchOneFund(fund) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${fund.ticker}?interval=1d&range=2y`;
-  const res = await fetch(CORS_PROXY + encodeURIComponent(url));
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${fund.ticker}`);
+  let res, lastErr;
+  for (const proxy of CORS_PROXIES) {
+    try {
+      res = await fetch(proxy(url));
+      if (res.ok) break;
+      lastErr = new Error(`HTTP ${res.status} for ${fund.ticker}`);
+    } catch (e) { lastErr = e; }
+  }
+  if (!res || !res.ok) throw lastErr || new Error(`All proxies failed for ${fund.ticker}`);
   const json = await res.json();
   const result = json?.chart?.result?.[0];
   if (!result) throw new Error(`No data for ${fund.ticker}`);
@@ -825,7 +836,7 @@ function initForecastDefaults() {
   const days=(new Date(lat.date)-new Date(fst.date))/864e5;
   const vol=calcVol(hist);
   document.getElementById('fcVol').value=Math.min(40,Math.max(1,vol)).toFixed(1);
-  document.getElementById('fcMonthly').value=500;
+  document.getElementById('fcMonthly').value=100;
   updateFcLabels(); _fcInit=true;
 }
 
