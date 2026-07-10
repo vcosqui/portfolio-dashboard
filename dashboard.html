@@ -182,6 +182,7 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
   <div class="hdr-right">
     <div><span class="status-dot"></span><span id="lastUpdate">No data loaded</span></div>
     <div id="todayDate"></div>
+    <div style="font-size:10px;opacity:.45"><a href="__BUILD_URL__" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">build __BUILD_SHA__ &middot; __BUILD_DATE__</a></div>
   </div>
 </header>
 
@@ -333,7 +334,7 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
       <div class="prog-wrap" id="dlProgWrap" style="display:none"><div class="prog-inner" id="dlProgBar" style="width:0%"></div></div>
       <div id="dlStatus" style="font-size:12px;margin-top:10px;min-height:16px"></div>
       <div id="dlError" style="font-size:12px;margin-top:8px;color:#f87171;display:none"></div>
-      <div style="font-size:11px;margin-top:16px;opacity:.5">Uses Yahoo Finance via CORS proxy (allorigins / corsproxy.io / codetabs). Data may take ~15s.</div>
+      <div style="font-size:11px;margin-top:16px;opacity:.5">Uses Yahoo Finance via CORS proxy (allorigins / codetabs). Data may take ~15s.</div>
     </div>
     <div id="holdingsContent" style="display:none">
       <div class="fund-cards" id="fundCards"></div>
@@ -416,7 +417,6 @@ const S = { positions: null, history: null, fundHistory: null, charts: {}, perfM
 
 const CORS_PROXIES = [
   url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
   url => `https://api.codetabs.com/v1/proxy?quest=${url}`,
 ];
 const FUND_TICKERS = [
@@ -436,11 +436,13 @@ async function fetchOneFund(fund) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${fund.ticker}?interval=1d&range=2y`;
   let res, lastErr;
   for (const proxy of CORS_PROXIES) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
     try {
-      res = await fetch(proxy(url));
+      res = await fetch(proxy(url), { signal: ctrl.signal });
       if (res.ok) break;
       lastErr = new Error(`HTTP ${res.status} for ${fund.ticker}`);
-    } catch (e) { lastErr = e; }
+    } catch (e) { lastErr = e; } finally { clearTimeout(timer); }
   }
   if (!res || !res.ok) throw lastErr || new Error(`All proxies failed for ${fund.ticker}`);
   const json = await res.json();
