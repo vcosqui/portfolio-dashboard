@@ -875,10 +875,6 @@ function execForecast() {
   kill('forecast');
   const datasets=[];
 
-  // Historical
-  datasets.push({ label:'Historical', data:hist.map(r=>({x:r.date,y:r.value})),
-    borderColor:'#10B981', borderWidth:2, pointRadius:0, tension:.2, fill:false, order:10 });
-
   // Bands: pairs [lo, hi]
   [[0,6],[1,5],[2,4]].forEach(([lo,hi],idx)=>{
     const alpha=[.06,.11,.17][idx];
