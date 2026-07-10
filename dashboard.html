@@ -315,7 +315,7 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
         <div class="card">
           <div class="card-hdr">
             <span class="card-title">Cumulative Return — Forecast</span>
-            <span style="font-size:11px;color:var(--muted)">total growth since today, with confidence bands</span>
+            <span style="font-size:11px;color:var(--muted)">pure investment return · negative (p2.5) / expected / positive (p97.5)</span>
           </div>
           <div class="cw" style="height:280px"><canvas id="fcAnnualChart"></canvas></div>
         </div>
@@ -814,7 +814,7 @@ function pctile(arr, p) {
 
 function runMC(start, mc, ar, av, months, sims) {
   const mr = Math.pow(1+ar/100,1/12)-1, mv=(av/100)/Math.sqrt(12);
-  const ps=[5,10,25,50,75,90,95];
+  const ps=[2.5,5,10,25,50,75,90,95,97.5];
   const bands=ps.map(()=>[]); const finals=[];
   const paths=Array.from({length:sims},()=>{
     let v=start; const p=[v];
@@ -875,15 +875,15 @@ function execForecast() {
   kill('forecast');
   const datasets=[];
 
-  // Bands: pairs [lo, hi]
-  [[0,6],[1,5],[2,4]].forEach(([lo,hi],idx)=>{
+  // Bands: pairs [lo, hi] — ps=[2.5,5,10,25,50,75,90,95,97.5], so p5=1,p95=7 etc.
+  [[1,7],[2,6],[3,5]].forEach(([lo,hi],idx)=>{
     const alpha=[.06,.11,.17][idx];
     datasets.push({ label:`p${ps[lo]}`, data:fcDates.map((d,i)=>({x:d,y:bands[lo][i]})), borderWidth:0, pointRadius:0, fill:false, order:3-idx });
     datasets.push({ label:`p${ps[hi]}`, data:fcDates.map((d,i)=>({x:d,y:bands[hi][i]})), borderWidth:0, pointRadius:0, fill:'-1', backgroundColor:ha('#3B82F6',alpha), order:3-idx });
   });
 
-  // Median
-  datasets.push({ label:'Median (p50)', data:fcDates.map((d,i)=>({x:d,y:bands[3][i]})),
+  // Median (p50 is now index 4)
+  datasets.push({ label:'Median (p50)', data:fcDates.map((d,i)=>({x:d,y:bands[4][i]})),
     borderColor:'#3B82F6', borderWidth:2, borderDash:[5,3], pointRadius:0, fill:false, order:5 });
 
   // Deterministic
@@ -988,32 +988,24 @@ function execForecast() {
     }
   });
 
-  // ── Cumulative return % chart: historical + forecast with confidence bands
-  // ps=[5,10,25,50,75,90,95]: indices 0..6
-  const offset = lat.returnPct; // offset so forecast continues from actual current return
+  // ── Cumulative return % chart: Indexa-style 3-scenario view
+  // Pure return (mc=0) so contributions don't inflate the % — mirrors Indexa's methodology
+  const offset = lat.returnPct;
+  const histCumData = S.history.map(r=>({x:r.date, y:parseFloat(r.returnPct.toFixed(2))}));
 
-  const histCumData    = S.history.map(r=>({x:r.date, y:parseFloat(r.returnPct.toFixed(2))}));
-  const contribMarkers = S.history
-    .filter(r=>r.dailyContrib>0)
-    .map(r=>({x:r.date, y:parseFloat(r.returnPct.toFixed(2)), amt:r.dailyContrib}));
-
-  const mkFc = pi => fcDates.map((d,m)=>({x:d, y:parseFloat((offset+(bands[pi][m]/bands[pi][0]-1)*100).toFixed(2))}));
-  const fcCumP5  = mkFc(0), fcCumP25 = mkFc(2), fcCumMed = mkFc(3);
-  const fcCumP75 = mkFc(4), fcCumP95 = mkFc(6);
-  const fcCumDet = fcDates.map((d,m)=>({x:d, y:parseFloat((offset+(determ[m]/determ[0]-1)*100).toFixed(2))}));
+  const {bands: pb} = runMC(lat.value, 0, ar, av, months, sims);
+  const mkPure = pi => fcDates.map((d,m)=>({x:d, y:parseFloat((offset+(pb[pi][m]/pb[pi][0]-1)*100).toFixed(2))}));
+  const fcNeg = mkPure(0);  // p2.5
+  const fcExp = fcDates.map((d,m)=>({x:d, y:parseFloat((offset+(Math.pow(1+mr,m)-1)*100).toFixed(2))}));
+  const fcPos = mkPure(8);  // p97.5
 
   S.charts.fcAnnual = new Chart(document.getElementById('fcAnnualChart'), {
     type:'line',
     data:{datasets:[
-      { label:'Historical',    data:histCumData,    borderColor:'#10B981', borderWidth:2, pointRadius:0, fill:false, tension:.2, order:10 },
-      { label:'Contributions', data:contribMarkers, type:'scatter', pointRadius:4, pointStyle:'circle',
-        backgroundColor:ha('#10B981',.55), borderColor:'#10B981', borderWidth:1, showLine:false, order:9 },
-      { label:'p5',            data:fcCumP5,  borderWidth:0, pointRadius:0, fill:false, order:4 },
-      { label:'p95',           data:fcCumP95, borderWidth:0, pointRadius:0, fill:'-1', backgroundColor:ha('#3B82F6',.09), order:4 },
-      { label:'p25',           data:fcCumP25, borderWidth:0, pointRadius:0, fill:false, order:3 },
-      { label:'p75',           data:fcCumP75, borderWidth:0, pointRadius:0, fill:'-1', backgroundColor:ha('#3B82F6',.2), order:3 },
-      { label:'Median (p50)',  data:fcCumMed, borderColor:'#3B82F6', borderWidth:2, pointRadius:0, fill:false, tension:.3, order:5 },
-      { label:'Deterministic', data:fcCumDet, borderColor:'#F59E0B', borderWidth:1.5, borderDash:[4,3], pointRadius:0, fill:false, tension:.3, order:6 },
+      { label:'Historical',       data:histCumData, borderColor:'#60A5FA', borderWidth:2, pointRadius:0, fill:false, tension:.2, order:10 },
+      { label:'Positive (p97.5)', data:fcPos, borderColor:'#10B981', borderWidth:2, pointRadius:0, fill:false, tension:.3, order:5 },
+      { label:'Expected',         data:fcExp, borderColor:'#94A3B8', borderWidth:2, pointRadius:0, fill:false, tension:.3, order:6 },
+      { label:'Negative (p2.5)',  data:fcNeg, borderColor:'#EF4444', borderWidth:2, pointRadius:0, fill:false, tension:.3, order:7 },
     ]},
     options:{
       responsive:true, maintainAspectRatio:false,
@@ -1026,19 +1018,12 @@ function execForecast() {
            ticks:{callback:v=>(v>=0?'+':'')+v.toFixed(0)+'%', maxTicksLimit:6, color:'#94a3b8'}}
       },
       plugins:{
-        legend:{display:true, position:'bottom', labels:{color:'#94a3b8', boxWidth:10, font:{size:10},
-          filter:i=>!['p5','p25','p75','p95'].includes(i.text)}},
+        legend:{display:true, position:'bottom', labels:{color:'#94a3b8', boxWidth:10, font:{size:10}}},
         tooltip:{backgroundColor:'#1e293b', borderColor:'#334155', borderWidth:1,
-          filter:i=>!['p5','p25','p75','p95'].includes(i.dataset.label),
-          callbacks:{
-            label:c=>{
-              if (c.dataset.label==='Contributions') return ` Contribution: +${eur0.format(c.raw.amt)}`;
-              if (c.dataset.label==='p95') return ` p5–p95 band: ${fcCumP5[c.dataIndex]?.y?.toFixed(1)}% – ${fcCumP95[c.dataIndex]?.y?.toFixed(1)}%`;
-              if (c.dataset.label==='p75') return ` p25–p75 band: ${fcCumP25[c.dataIndex]?.y?.toFixed(1)}% – ${fcCumP75[c.dataIndex]?.y?.toFixed(1)}%`;
-              const v = typeof c.raw==='object'?c.raw.y:c.raw;
-              return ` ${c.dataset.label}: ${v>=0?'+':''}${(+v).toFixed(1)}%`;
-            }
-          }
+          callbacks:{label:c=>{
+            const v=typeof c.raw==='object'?c.raw.y:c.raw;
+            return ` ${c.dataset.label}: ${v>=0?'+':''}${(+v).toFixed(1)}%`;
+          }}
         },
       },
     },
